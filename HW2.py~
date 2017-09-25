@@ -1,0 +1,104 @@
+from collections import Counter, namedtuple
+from math import log
+import re
+import nltk
+
+LanguageModel = namedtuple('LanguageModel', 'num_tokens, vocab, nminus1grams, ngrams') # holds counts for the lm
+DELIM = "_" # delimiter for tokens in an ngram
+
+def tokenize_text(text):
+    """ Converts a string to a list of tokens """
+    plotTokens = []
+    reviewTokens = []
+    for sent in nltk.sent_tokenize(text):
+        if 'p: ' in sent: #label as plot
+            sent = sent.replace('p: ', '')
+            plotTokens.extend(nltk.word_tokenize(sent))
+
+        
+        if 'r: ' in sent: #label as review
+            sent = sent.replace('r: ', '')
+            reviewTokens.extend(nltk.word_tokenize(sent))
+
+    return plotTokens
+
+def generate_ngrams(tokens, n):
+    """ Returns a list of ngrams made from a list of tokens """
+    ngrams = []
+    if n > 0:
+        for i in range(0, len(tokens)-n+1):
+            ngrams.append(DELIM.join(tokens[i:i+n]))
+
+    return ngrams
+
+def build_lm(text, n):
+    """ Builds an ngram language model. """
+    tokens = tokenize_text(text)
+
+    num_tokens = len(tokens)
+    vocab = set(tokens)
+    nminus1grams = Counter(generate_ngrams(tokens, n - 1))
+    ngrams = Counter(generate_ngrams(tokens, n))
+
+    return LanguageModel(num_tokens, vocab, nminus1grams, ngrams)
+
+def prob(lm, token, history=None):
+
+    d = 0.5
+    """ Computes the probability of the ngram.
+
+    Returns the Add-1 smoothed log-probability of 
+    "token" following "history"
+
+    Args:
+        lm (LanguageModel): ngram counts from the corpus
+        token: target token
+        history: n-1 previous tokens or None
+
+    Return:
+        float: log-probability of the ngram
+    """
+    if history == None: #unigram model
+        ngram_count_l = lm.ngrams.get(token, 0)
+        prefix_count_l = lm.num_tokens + len(lm.vocab)
+    else:
+        ngram_count_l = lm.ngrams.get(history+DELIM+token, 0)
+        prefix_count_l = lm.nminus1grams.get(history, 0) + len(lm.vocab)
+
+    return float(ngram_count_l) / prefix_count_l
+#pre: word has been seen
+#temp: assume n > 1
+def discount(lm, token, history):
+    d = 0.5
+    ngram_count_l = lm.ngrams.get(history+DELIM+token, 0) - d
+    prefix_count_l = lm.nminus1grams.get(history, 0) + len(lm.vocab)
+    return float(ngram_count_l) / prefix_count_l
+
+def alpha(lm, history):
+    seen = 1.0
+    unseen = 0
+    for key, value in lm.ngrams.iteritems():
+        
+        if history in key:
+            seen -= discount(lm,key,history)
+        else: #if not same history
+            unseen += lm.ngrams.get(key)/lm.num_tokens
+        print(seen)
+    return float(seen)/unseen
+   
+    
+if __name__ == '__main__':
+    """ example usage"""
+
+    with open("hw2_test.txt", 'r') as file:
+        text = file.read()
+
+    lm = build_lm(text, 2) #bigram model
+
+    history = "I"
+    probs = [(w,prob(lm, w, history)) for w in lm.vocab]
+    probs = sorted(probs, key=lambda x:x[1], reverse=True)
+
+    print(alpha(lm, history))
+    #print("10 most probable words to follow '{}': {}".format(history, probs[:10]))
+
