@@ -1,5 +1,6 @@
 #Aria Kim & Nambi Williams
 #HW2
+#run this in python 2
 
 from collections import Counter, namedtuple
 from math import log
@@ -64,12 +65,14 @@ def bayesProb(lm, token):
 def classify(lmplot, lmreview, test):
     #Vars to check accuracy
     isplot = True
-    correct = 0
-    incorrect = 0
+    tp = 0 #plot
+    tn = 0 #review
+    fp = 0 #notPlot
+    fn = 0 #notReview
     
     for sent in nltk.sent_tokenize(test):
        #When sentence is tagged as plot
-       if(sent[:3] is 'p: '):
+       if 'p: ' in sent[:3]:
            sent = sent.replace('p: ','')
        #When sentence is tagged as review
        else:    
@@ -90,22 +93,25 @@ def classify(lmplot, lmreview, test):
        rev = rev * float(lmreview.sentcount)/(lmplot.sentcount + lmreview.sentcount)
 
        #Classification of sentence
-       #Checks accuracy
+       #Checks correctness
        if plot > rev:
            if isplot:
-               correct += 1
+               tp += 1
            else:
-               incorrect += 1
+               fp += 1
            print 'p: ' + sent
        else:
            if isplot:
-               incorrect += 1
+               fn += 1
            else:
-               correct += 1
+               tn += 1
            print 'r: ' + sent
            
-    #Accuracy percentage
-    return float(correct)/(correct + incorrect)
+    precision = float(tp)/(tp + fp)
+    recall = float(tp)/(tp + fn)
+    print "Precision: ", precision
+    print "Recall: ", recall
+    print "F1: ", float(2*precision*recall)/(precision+recall)
 
 
 if __name__ == '__main__':
@@ -121,4 +127,4 @@ if __name__ == '__main__':
     with open("hw2_test.txt", 'r') as file:
         test = file.read()
 
-    print classify(plot, review, test)
+    classify(plot, review, test)
